@@ -1,5 +1,11 @@
 from flask import Flask, render_template
 import RPi.GPIO as GPIO
+from pymongo import MongoClient
+import os
+
+cluster = MongoClient(os.environ.get("MONGO_URI"))
+db = cluster["LibraryDB"]
+collection = db["users"]
 
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BOARD)
@@ -7,10 +13,14 @@ GPIO.setmode(GPIO.BOARD)
 app = Flask(__name__)
 app.debug = True
 
+# Home page route
+
 
 @app.route("/")
 def home():
     return render_template('home.html')
+
+# Student pages route
 
 
 @app.route("/student/home")
@@ -34,6 +44,14 @@ def irSensor():
                 mode="ERROR")
 
 
+@app.route("/student/QRlogin")
+def qrLogin():
+    post = {"email": "yash123", "pid": "123", "password": "123"}
+    collection.insert_one(post)
+    return render_template('qrlogin.html')
+
+# Admin pages route
+
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080)
-

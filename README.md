@@ -1,6 +1,11 @@
 
 ## Setting Virtual Environment
 
+```bash
+# Save packages to requirement.txt
+
+pip3 freeze > requirements.txt
+```
 
 ```bash
 
@@ -19,5 +24,29 @@ pip install -r requirements.txt
 deactivate
 
 ```
+## Setting Environment Variables
+
+_For Linux Environments_
+
+```bash
+
+# in virtual environemnts create . env file
+
+touch .env
+
+# Now save your secret
+
+export KEY="mysecretkey_12345"
+
+# Save this file in vevn
+
+source .env
+
+```
 
 
+```python
+import os
+
+os.environ.get("KEY")
+```
