@@ -2,3 +2,4 @@ bin
 lib
 share/
 .env
+sensor-scripts/image*
