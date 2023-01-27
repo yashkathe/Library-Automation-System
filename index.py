@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 import RPi.GPIO as GPIO
 from pymongo import MongoClient
 import urllib.request
@@ -6,10 +6,11 @@ import json
 import textwrap
 import os
 
+# DataBase config
 cluster = MongoClient(os.environ.get("MONGO_URI"))
 db = cluster["LibraryDB"]
-collection = db["users"]
 
+# GPIO config
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BOARD)
 
@@ -18,10 +19,9 @@ app.debug = True
 
 # Home page route
 
-
 @app.route("/")
 def home():
-    return render_template('home.html')
+    return render_template('home.html', headerText = "Library automation Platform")
 
 # Student pages route
 
@@ -88,21 +88,24 @@ def irSensorAdmin():
                 "IR activated",
                 "The ISBN will be scanned now"
             ],
-                mode="DETECTED")
+                mode="DETECTED",
+                headerText="Admin Home Page")
         elif i == 1:
             return render_template('admin/admin-home.html', message=[
                 "IR Sensor not activated"],
-                mode="NOTDETECTED")
+                mode="NOTDETECTED",
+                headerText="Admin Home Page")
         else:
             return render_template('admin/admin-home.html', message=[
                 "IR sensor is not connected to the system"],
-                mode="ERROR")
+                mode="ERROR",
+                headerText="Admin Home Page")
 
 
 @app.route("/admin/store-book")
 def storeBookAdmin():
     base_api_link = "https://www.googleapis.com/books/v1/volumes?q=isbn:"
-    with urllib.request.urlopen(base_api_link + "9781451648539") as f:
+    with urllib.request.urlopen(base_api_link + "9780307950284" ) as f:
         text = f.read()
     decoded_text = text.decode("utf-8")
     # deserializes decoded_text to a Python object
@@ -118,7 +121,20 @@ def storeBookAdmin():
     pageCount = volume_info["volumeInfo"]["pageCount"]
     language = volume_info["volumeInfo"]["language"]
 
-    return render_template('admin/store-book.html', title=title, description=description, authors=authors, pageCount=pageCount, language=language, publisher=publisher, image=image)
+    return render_template('admin/store-book.html', headerText="Store Book Data into Database" ,title=title, description=description, authors=authors, pageCount=pageCount, language=language, publisher=publisher, image=image)
+
+@app.route('/admin/store-book-db', methods=['POST'])
+def storeBookAdminPost():
+    # Database settings
+    # collection = db["books"]
+
+    # Collect data
+    title = request.form["publishers"]
+    print(title)
+
+    # Write query
+    
+    return render_template('admin/halt-page.html', headerText="Redirecting", messageText="Successfully Stored data into the Database")
 
 
 if __name__ == "__main__":

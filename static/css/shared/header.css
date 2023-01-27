@@ -1,7 +1,7 @@
 body {
     margin: 0;
     background-color: #0d0c1d;
-    color:white
+    color: white
 }
 
 a {
@@ -11,7 +11,7 @@ a {
 .header {
     box-sizing: border-box;
     width: 100vw;
-    height:9vh;
+    height: 9vh;
     background-color: #0d0c1d;
     border-bottom: 2px solid #474973;
     display: flex;

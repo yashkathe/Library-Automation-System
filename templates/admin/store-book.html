@@ -1,12 +1,72 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type=text/css href="{{ url_for('static',filename='css/admin/store-book_admin.css') }}">
     <title>Document</title>
 </head>
+
 <body>
-    
+    {% include 'shared/header.html' %}
+
+    <main>
+        <div class="form-div">
+            <form method="post" action="/admin/store-book-db" >
+                <div class="inner-form_div">
+                    <img src={{image}} />
+                </div>
+                <div class="inner-form_div">
+                    <div>
+                        <label>Title</label>
+                        <input name="title" id="title" type="text" value="{{title}}" />
+                    </div>
+                    <div>
+                        <label>Description</label>
+                        <input name="description" id="description" type="text" value="{{description}}" />
+                    </div>
+                </div>
+
+                <div class="inner-form_div">
+                    <div>
+                        <label>Image</label>
+                        <input name=" imageLink" id="imageLink" type="url" value="{{image}}" />
+                    </div>
+                    <div>
+                        <label>Authors</label>
+                        <input name="authors" id="authors" type="text" value="{{authors}}" />
+                    </div>
+
+                </div>
+                <div class="inner-form_div">
+                    <div>
+                        <label>Page Count</label>
+                        <input name="pageCount id=" pageCount type="number" value="{{pageCount}}" />
+                    </div>
+                    <div>
+                        <label>Language</label>
+                        <input name="language" id="language" type="text" value="{{language}}" />
+                    </div>
+
+                </div>
+                <div class="inner-form_div">
+                    <div>
+                        <label>Publisher</label>
+                        <input name="publishers" id="publishers" type="text" value="{{publisher}}" />
+                    </div>
+                    <div>
+                        <label>Quantity</label>
+                        <input name="quantity" id="quantity" type="number" required />
+                    </div>
+                </div>
+                <div class="inner-form_div">
+                    <button class="submit_btn" type="submit">Store Book</button>
+                </div>
+            </form>
+        </div>
+    </main>
 </body>
+
 </html>

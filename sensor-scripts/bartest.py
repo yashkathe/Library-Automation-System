@@ -1,30 +1,20 @@
-from pyzbar import pyzbar
 import cv2
-import argparse
-from imutils.video import VideoStream
-import time
-import imutils
-#Video stream
+from pyzbar import pyzbar
 
-ap = argparse.ArgumentParser()
-ap.add_argument("-o", "--output", type=str, default="barcodes.csv",
-help="path to output CSV file containing barcodes")
-args = vars(ap.parse_args())
-#vs = VideoStream(src=0).start()  #Uncomment this if you are using Webcam
-vs = VideoStream(usePiCamera=True).start() # For Pi Camera
-time.sleep(0.1)
-found = set()
-
-#video stream
+#initialize the camera
+camera = cv2.VideoCapture(0)
 
 while True:
-    frame = vs.read()
-    frame = imutils.resize(frame, width=400)
-    # decodes all barcodes from an image
+    #grab the current frame
+    ret, frame = camera.read()
+
+    #decode the barcode
     decoded_objects = pyzbar.decode(frame)
+   
+    #loop over the decoded objects
     for obj in decoded_objects:
-        # draw the barcode
-        image = draw_barcode(obj, frame)
+        #extract the bounding box location of the barcode
+	image = draw_barcode(obj, frame)
         # print barcode type & data
         isbn=obj.data
         type1=obj.type
@@ -33,16 +23,25 @@ while True:
         print()
 
 
-def draw_barcode(decoded, image):
+def draw_barcode(decoded, frame):
     # n_points = len(decoded.polygon)
     # for i in range(n_points):
     #     image = cv2.line(image, decoded.polygon[i], decoded.polygon[(i+1) % n_points], color=(0, 255, 0), thickness=5)
     # uncomment above and comment below if you want to draw a polygon and not a rectangle
-    image = cv2.rectangle(image, (decoded.rect.left, decoded.rect.top),
+    image = cv2.rectangle(frame, (decoded.rect.left, decoded.rect.top),
                             (decoded.rect.left + decoded.rect.width, decoded.rect.top + decoded.rect.height),
                             color=(0, 255, 0),
                             thickness=5)
-    return image
+    return frame
 
+    #show the frame
+    cv2.imshow("Barcode scanner", frame)
 
+    #if the 'q' key is pressed, stop the loop
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord("q"):
+        break
 
+#cleanup
+camera.release()
+cv2.destroyAllWindows()
