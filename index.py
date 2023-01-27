@@ -30,19 +30,19 @@ def home():
 def irSensor():
     GPIO.setup(11, GPIO.IN)  # Read output from PIR motion sensor
     while True:
-        i = GPIO.input(11)
+        i = GPIO.input(15)
         if i == 0:  # When output from motion sensor is HIGH
-            return render_template('student-home.html', message=[
+            return render_template('student/student-home.html', message=[
                 "Student detected",
                 "Place your barcode in front of the camera"
             ],
                 mode="DETECTED")
         elif i == 1:
-            return render_template('student-home.html', message=[
+            return render_template('student/student-home.html', message=[
                 "No Student detected"],
                 mode="NOTDETECTED")
         else:
-            return render_template('student-home.html', message=[
+            return render_template('student/student-home.html', message=[
                 "PIR sensor is not connected to the system"],
                 mode="ERROR")
 
@@ -51,7 +51,7 @@ def irSensor():
 def qrLogin():
     post = {"email": "yash123", "pid": "123", "password": "123"}
     collection.insert_one(post)
-    return render_template('qrlogin.html')
+    return render_template('student/qrlogin.html')
 
 
 @app.route("/student/store-book")
@@ -73,9 +73,52 @@ def booksApi():
     pageCount = volume_info["volumeInfo"]["pageCount"]
     language = volume_info["volumeInfo"]["language"]
 
-    return render_template('store-book.html', title=title, description=description, authors=authors, pageCount=pageCount, language=language, publisher=publisher, image=image)
+    return render_template('student/store-book.html', title=title, description=description, authors=authors, pageCount=pageCount, language=language, publisher=publisher, image=image)
 
 # Admin pages route
+
+
+@app.route("/admin/home")
+def irSensorAdmin():
+    GPIO.setup(11, GPIO.IN)  # Read output from PIR motion sensor
+    while True:
+        i = GPIO.input(11)
+        if i == 0:  # When output from motion sensor is HIGH
+            return render_template('admin/admin-home.html', message=[
+                "IR activated",
+                "The ISBN will be scanned now"
+            ],
+                mode="DETECTED")
+        elif i == 1:
+            return render_template('admin/admin-home.html', message=[
+                "IR Sensor not activated"],
+                mode="NOTDETECTED")
+        else:
+            return render_template('admin/admin-home.html', message=[
+                "IR sensor is not connected to the system"],
+                mode="ERROR")
+
+
+@app.route("/admin/store-book")
+def storeBookAdmin():
+    base_api_link = "https://www.googleapis.com/books/v1/volumes?q=isbn:"
+    with urllib.request.urlopen(base_api_link + "9781451648539") as f:
+        text = f.read()
+    decoded_text = text.decode("utf-8")
+    # deserializes decoded_text to a Python object
+    obj = json.loads(decoded_text)
+    volume_info = obj["items"][0]
+    authors = obj["items"][0]["volumeInfo"]["authors"]
+    publisher = obj["items"][0]["volumeInfo"]["publisher"]
+    image = obj["items"][0]["volumeInfo"]["imageLinks"]["thumbnail"]
+
+    title = volume_info["volumeInfo"]["title"]
+    description = textwrap.fill(
+        volume_info["searchInfo"]["textSnippet"], width=65)
+    pageCount = volume_info["volumeInfo"]["pageCount"]
+    language = volume_info["volumeInfo"]["language"]
+
+    return render_template('admin/store-book.html', title=title, description=description, authors=authors, pageCount=pageCount, language=language, publisher=publisher, image=image)
 
 
 if __name__ == "__main__":

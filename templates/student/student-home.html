@@ -34,19 +34,23 @@
     <script defer>
         if("{{ mode }}" == "DETECTED") {
             window.setTimeout(function() {
-            // Move to a new location or you can do something else
-            window.location.href = "http://192.168.3.56:8080/student/QRlogin";
-        }, 2000);
+                // Move to a new location or you can do something else
+                window.location.href = "http://192.168.3.56:8080/student/QRlogin";
+            }, 2000);
         }
     </script>
 
     <header>Student Home Page</header>
     <main>
-        <h1>
-            Interact with PIR sensor to add book to your account
-        </h1>
         <div>
-            {{ message }}
+            <h1>
+                Interact with PIR sensor to add book to your account
+            </h1>
+        </div>
+        <div>
+            <p>
+                {{ message }}
+            </p>
         </div>
     </main>
 </body>

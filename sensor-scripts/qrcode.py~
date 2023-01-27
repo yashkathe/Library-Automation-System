@@ -27,7 +27,6 @@ while True:
         barcodeType = barcode.type
         text = "{} ({})".format(barcodeData, barcodeType)
         print (text)
-        print(text)
         cv2.putText(frame, text, (x, y - 10),
         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 

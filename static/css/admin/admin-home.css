@@ -1,0 +1,30 @@
+.main-contents {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+    color: #a69cac;
+    margin:20%;
+    margin-top: 15vh;
+    border: 0.5px solid #a69cac;
+    background-color: #161b33;
+    border-radius: 5px;
+    height: 40vh;
+    width: 55vw;
+}
+
+.main-contents > div:nth-child(odd) {
+    font-size: 15px;
+}
+
+.main-contents > div:nth-child(even) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+div > h4 {
+    font-size: 1.5rem;
+    margin:10px
+}
