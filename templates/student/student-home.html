@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type=text/css href="{{ url_for('static',filename='css/admin/admin-home.css') }}">
     <title>Student Home</title>
 </head>
 
@@ -40,17 +41,25 @@
         }
     </script>
 
-    <header>Student Home Page</header>
-    <main>
+    {% include 'shared/header.html' %}
+
+    <main class="main-contents">
         <div>
             <h1>
-                Interact with PIR sensor to add book to your account
+                Interact with IR sensor after placing the book you want to Issue
             </h1>
         </div>
         <div>
-            <p>
-                {{ message }}
-            </p>
+            <div>
+                <p>
+                    {{ message }}
+                </p>
+            </div>
+        </div>
+        <div>
+            {% if mode == 'DETECTED' %}
+            {% include 'shared/spinner.html' %}
+            {% endif %}
         </div>
     </main>
 </body>
