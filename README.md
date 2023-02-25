@@ -1,8 +1,10 @@
 
 ## Setting Virtual Environment
 
-```bash
+
 # Save packages to requirement.txt
+
+```bash
 
 pip3 freeze > requirements.txt
 ```

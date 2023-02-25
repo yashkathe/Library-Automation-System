@@ -1,11 +1,9 @@
 from imutils.video import VideoStream
 from pyzbar import pyzbar
 import argparse
-import datetime
 import imutils
 import time
 import cv2
-import sys
 import os
 
 ap = argparse.ArgumentParser()
@@ -32,13 +30,12 @@ while True:
         cv2.putText(frame, text, (x, y - 10),
         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
-
-# if the barcode text is currently not in our CSV file, write
-# the timestamp + barcode to disk and update the set
-if barcodeData not in found:
-    found.add(barcodeData)
-    cv2.imshow("Barcode Reader", frame)
-    key = cv2.waitKey(1) & 0xFF
+#if the barcode text is currently not in our CSV file, write
+#the timestamp + barcode to disk and update the set
+#if barcodeData not in found:
+#    found.add(barcodeData)
+#    cv2.imshow("Barcode Reader", frame)
+#    key = cv2.waitKey(1) & 0xFF
 
 # if the `s` key is pressed, break from the loop
 #if key == ord("s"):

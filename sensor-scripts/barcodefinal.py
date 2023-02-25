@@ -31,7 +31,7 @@ def draw_barcode(decoded, image):
 
 
 # load the image to opencv
-image = cv2.imread("sheru18.jpg")
+image = cv2.imread("sheru22.jpg")
 # decode detected barcodes & get the image
 # that is drawn
 image = decode(image)

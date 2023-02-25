@@ -5,6 +5,14 @@ import urllib.request
 import json
 import textwrap
 import os
+from imutils.video import VideoStream
+from pyzbar import pyzbar
+import argparse
+import imutils
+import time
+import cv2
+import picamera
+from bson import ObjectId
 
 # DataBase config
 cluster = MongoClient(os.environ.get("MONGO_URI"))
@@ -95,6 +103,65 @@ def booksApi():
 # Admin pages route
 
 
+@app.route("/admin/auth/halt-page")
+def loginHaltAdmin():
+    GPIO.setup(11, GPIO.IN)  # Read output from PIR motion sensor
+    while True:
+        i = GPIO.input(11)
+        if i == 0:  # When output from motion sensor is HIGH
+            return render_template('admin/halt-page.html',
+                                   messageText="Place your QR Code in front of camera to login now",
+                                   headerText="Admin LOGIN",
+                                   redirectLink="/admin/auth/login",
+                                   mode="DETECTED"
+                                   )
+        elif i == 1:
+            return render_template('admin/halt-page.html',
+                                   messageText="interact with IR sensor when you are ready with your barcode",
+                                   headerText="Admin LOGIN")
+        else:
+            return render_template('admin/halt-page.html',
+                                   messageText="Not IR sensor detected",
+                                   headerText="ERROR")
+
+
+@app.route("/admin/auth/login")
+def loginAdmin():
+    try:
+        # setup database 
+
+        db = cluster["LibraryDB"]
+        collection = db["users"]
+
+        # start pi camera for qr code scanning
+
+        ap = argparse.ArgumentParser()
+        ap.add_argument("-o", "--output", type=str, default="barcodes.csv",
+                        help="path to output CSV file containing barcodes")
+        args = vars(ap.parse_args())
+        # vs = VideoStream(src=0).start()  #Uncomment this if you are using Webcam
+        vs = VideoStream(usePiCamera=True).start()  # For Pi Camera
+        time.sleep(0.1)
+        found = set()
+
+        while True:
+            frame = vs.read()
+            frame = imutils.resize(frame, width=400)
+            barcodes = pyzbar.decode(frame)
+            for barcode in barcodes:
+                (x, y, w, h) = barcode.rect
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                barcodeData = barcode.data.decode("utf-8")
+                barcodeType = barcode.type
+                if (barcodeData):
+                    print(barcodeData)
+                    user = collection.find_one({"_id": ObjectId(barcodeData)})
+                    print(user)
+    except Exception as e:
+        print(e)
+        return render_template("error.html", headerText="Error", messageText=str(e))
+
+
 @app.route("/admin/home")
 def irSensorAdmin():
     try:
@@ -183,7 +250,7 @@ def storeBookAdminPost():
             "issuedBy": []
         })
 
-        return render_template('admin/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database")
+        return render_template('admin/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/admin/home")
     except Exception as e:
         return render_template("error.html", headerText="Error", messageText=str(e))
 
@@ -192,6 +259,8 @@ def storeBookAdminPost():
 
 @app.errorhandler(404)
 def page_not_found(e):
+    camera = picamera.PiCamera()
+    camera.stop_preview()
     return render_template("error.html", headerText="Error 404", messageText="Couldn't find such route")
 
 

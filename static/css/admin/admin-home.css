@@ -10,7 +10,7 @@
     background-color: #161b33;
     border-radius: 5px;
     height: 40vh;
-    max-height: auto;
+    min-height: auto;
     width: 55vw;
 }
 
