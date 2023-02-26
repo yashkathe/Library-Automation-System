@@ -12,3 +12,7 @@ main {
     align-items: center;
     justify-content: space-evenly;
 }
+
+div > h2{
+    padding: 1.2rem
+}
