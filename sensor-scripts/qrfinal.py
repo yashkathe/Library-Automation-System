@@ -10,8 +10,8 @@ ap = argparse.ArgumentParser()
 ap.add_argument("-o", "--output", type=str, default="barcodes.csv",
 help="path to output CSV file containing barcodes")
 args = vars(ap.parse_args())
-#vs = VideoStream(src=0).start()  #Uncomment this if you are using Webcam
-vs = VideoStream(usePiCamera=True).start() # For Pi Camera
+vs = VideoStream(src=0).start()  #Uncomment this if you are using Webcam
+#vs = VideoStream(usePiCamera=True).start() # For Pi Camera
 time.sleep(0.1)
 found = set()
 
