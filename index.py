@@ -12,6 +12,8 @@ import textwrap
 import os
 import imutils
 import time
+import serial
+
 
 # DataBase config
 cluster = MongoClient(os.environ.get("MONGO_URI"))
@@ -226,24 +228,55 @@ def storeBookAdmin():
     try:
         sessionAdmin = session["admin"]
         if (sessionAdmin):
-            base_api_link = "https://www.googleapis.com/books/v1/volumes?q=isbn:"
-            with urllib.request.urlopen(base_api_link + "9780307950284") as f:
-                text = f.read()
-            decoded_text = text.decode("utf-8")
-            # deserializes decoded_text to a Python object
-            obj = json.loads(decoded_text)
-            volume_info = obj["items"][0]
-            authors = obj["items"][0]["volumeInfo"]["authors"]
-            publisher = obj["items"][0]["volumeInfo"]["publisher"]
-            image = obj["items"][0]["volumeInfo"]["imageLinks"]["thumbnail"]
+            while True:
+                # configure the serial port
+                ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
 
-            title = volume_info["volumeInfo"]["title"]
-            description = textwrap.fill(
-                volume_info["searchInfo"]["textSnippet"], width=65)
-            pageCount = volume_info["volumeInfo"]["pageCount"]
-            language = volume_info["volumeInfo"]["language"]
+                # wait for the scanner to initialize
+                time.sleep(1)
 
-            return render_template('admin/store-book.html', headerText="Store Book Data into Database", title=title, description=description, authors=authors, pageCount=pageCount, language=language, publisher=publisher, image=image)
+                barcode = ""
+                # read the data from the serial port
+                data = ser.read(13)
+                # decode the barcode data
+                barcode = data.decode('utf-8')
+                if (barcode):
+                    print(barcode)
+                    base_api_link = "https://www.googleapis.com/books/v1/volumes?q=isbn:"
+                    with urllib.request.urlopen(base_api_link + barcode) as f:
+                        text = f.read()
+                    decoded_text = text.decode("utf-8")
+                    # deserializes decoded_text to a Python object
+                    obj = json.loads(decoded_text)
+
+                    print(len(obj))
+
+                    # check if books exists
+                    if obj["totalItems"] == 0:
+                        return render_template("error.html", headerText="Error", messageText="Google Books API has no data for the given ISBN")
+
+                    volume_info = obj["items"][0]
+                    authors = obj["items"][0]["volumeInfo"]["authors"]
+                    # publisherInit = obj["items"][0]["volumeInfo"]["publisher"]
+                    # if (publisherInit):
+                        # publisher == publisherInit
+                    # else:
+                        # publisher == None
+                    image = obj["items"][0]["volumeInfo"]["imageLinks"]["thumbnail"]
+                    title = volume_info["volumeInfo"]["title"]
+                    description = textwrap.fill(
+                        volume_info["searchInfo"]["textSnippet"], width=65)
+                    pageCount = volume_info["volumeInfo"]["pageCount"]
+                    language = volume_info["volumeInfo"]["language"]
+                    return render_template('admin/store-book.html',
+                                           headerText="Store Book Data into Database",
+                                           title=title,
+                                           description=description,
+                                           authors=authors,
+                                           pageCount=pageCount,
+                                           language=language,
+                                        #    publisher=publisher,
+                                           image=image)
         else:
             raise Exception("No Sessions found. Please login first")
     except Exception as e:
@@ -264,12 +297,12 @@ def storeBookAdminPost():
         authors = request.form["authors"]
         pageCount = request.form["pageCount"]
         language = request.form["language"]
-        publishers = request.form["publishers"]
+        # publishers = request.form["publishers"]
         quantity = request.form["quantity"]
 
         # Check if the book already exists
         existingBook = collection.find_one(
-            {"title": title, "language": language, "publishers": publishers})
+            {"title": title})
         if existingBook:
             return render_template("error.html", headerText="Error", messageText="A book with similar title already exists")
 
@@ -281,12 +314,12 @@ def storeBookAdminPost():
             "authors": authors,
             "pageCount": pageCount,
             "language": language,
-            "publishers": publishers,
+            # "publishers": publishers,
             "quantity": quantity,
             "issuedBy": []
         })
 
-        return render_template('admin/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/admin/home")
+        return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/admin/home")
     except Exception as e:
         return render_template("error.html", headerText="Error", messageText=str(e))
 
