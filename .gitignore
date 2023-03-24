@@ -4,4 +4,3 @@ share/
 .env
 sensor-scripts/image*
 sensor-scripts/sheru*
-sensor-scripts
