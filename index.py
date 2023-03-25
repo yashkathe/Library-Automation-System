@@ -34,10 +34,11 @@ db = cluster["LibraryDB"]
 
 @app.route("/")
 def home():
+    session["student"] = None
+    session["admin"] = None
     return render_template('home.html', headerText="Library automation Platform")
 
 # Student pages route
-
 
 @app.route("/student/auth/halt-page")
 def loginHaltStudent():
@@ -63,7 +64,6 @@ def loginHaltStudent():
     except Exception as e:
         return render_template("error.html", headerText="Error", messageText=str(e))
 
-
 @app.route("/student/auth/login")
 def qrLogin():
     try:
@@ -73,7 +73,6 @@ def qrLogin():
         ap = argparse.ArgumentParser()
         ap.add_argument("-o", "--output", type=str, default="barcodes.csv",
                         help="path to output CSV file containing barcodes")
-        # Uncomment this if you are using Webcam
         vs = VideoStream(src=0).start()
         args = vars(ap.parse_args())
         # vs = VideoStream(usePiCamera=True).start()  # For Pi Camera
@@ -87,7 +86,6 @@ def qrLogin():
                 cv2.rectangle(frame, (x, y), (x + w, y + h),
                               (0, 0, 255), 2)
                 barcodeData = barcode.data.decode("utf-8")
-                barcodeType = barcode.type
                 if (barcodeData):
                     vs.stop()
                     print(barcodeData)
@@ -96,7 +94,7 @@ def qrLogin():
                     if (user):
                         print(user)
                         session["student"] = barcodeData
-                        return redirect(url_for("booksApi"))
+                        return redirect(url_for("returnOrIssue"))
                     else:
                         raise Exception(
                             "No account found, try again later")
@@ -108,28 +106,126 @@ def qrLogin():
         return render_template("error.html", headerText="Error", messageText=str(e))
 
 
-@app.route("/student/store-book")
-def booksApi():
+@app.route("/student/select-option")
+def returnOrIssue():
     try:
-        base_api_link = "https://www.googleapis.com/books/v1/volumes?q=isbn:"
-        with urllib.request.urlopen(base_api_link + "9781451648539") as f:
-            text = f.read()
-        decoded_text = text.decode("utf-8")
-        # deserializes decoded_text to a Python object
-        obj = json.loads(decoded_text)
-        volume_info = obj["items"][0]
-        authors = obj["items"][0]["volumeInfo"]["authors"]
-        publisher = obj["items"][0]["volumeInfo"]["publisher"]
-        image = obj["items"][0]["volumeInfo"]["imageLinks"]["thumbnail"]
-
-        title = volume_info["volumeInfo"]["title"]
-        description = textwrap.fill(
-            volume_info["searchInfo"]["textSnippet"], width=65)
-        pageCount = volume_info["volumeInfo"]["pageCount"]
-        language = volume_info["volumeInfo"]["language"]
-
-        return render_template('student/store-book.html', title=title, description=description, authors=authors, pageCount=pageCount, language=language, publisher=publisher, image=image)
+        sessionStudent = session["student"]
+        if(sessionStudent):
+            collection = db["users"]
+            user = collection.find_one({"_id": ObjectId(session["student"])})
+            return render_template('student/issueOrReturn.html', headerText="Welcome " + user["email"])
+        else:
+            raise Exception("No Sessions found. Please login first")
     except Exception as e:
+        return render_template("error.html", headerText="Error", messageText=str(e))
+
+
+@app.route("/student/issue-home")
+def issueBook():
+    try:
+        sessionStudent = session["student"]
+        if(sessionStudent):
+            return render_template('shared/shared-home.html', message=[
+                "Started Scanning",
+                "The ISBN will be scanned now"
+            ],
+                mode="DETECTED",
+                headerText="Issuing Book",
+                redirectLink="/student/issue-book-db")
+        else:
+            raise Exception("No Sessions found. Please login first")
+    except Exception as e:
+        return render_template("error.html", headerText="Error", messageText=str(e))
+
+@app.route("/student/issue-book-db")
+def issueBookDB():
+    try:
+        sessionStudent = session["student"]
+        if(sessionStudent):
+            # scanning isbn code will go here
+            barcode = "9781451648539"
+            
+            if(barcode):
+                bookCollection = db["books"]
+                userCollection = db["users"]
+                existingBook = bookCollection.find_one(
+                        {"isbn": barcode})
+                if(existingBook):
+
+                    #update book collection
+                    myquery = { "isbn": existingBook["isbn"] }
+                    updatedQuantity =  int(existingBook["quantity"]) - 1
+                    newvalues = { "$set": { "quantity": updatedQuantity  } }
+                    bookCollection.update_one(myquery, newvalues)
+                    newvalues = { "$push": { "issuedBy": ObjectId(sessionStudent) } }
+                    bookCollection.update_one(myquery, newvalues)
+
+                    #update user collection
+                    myquery = { "_id": ObjectId(session["student"]) }
+                    newvalues = { "$push": { "booksIssued": existingBook["isbn"] } }
+                    userCollection.update_one(myquery, newvalues)
+
+                    return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/student/select-option")
+                else:
+                    raise Exception("There is no such book in a databse")
+        else:
+            raise Exception("No Sessions found. Please login first")
+    except Exception as e:
+        print(e)
+        return render_template("error.html", headerText="Error", messageText=str(e))
+
+@app.route("/student/return-home")
+def returnBook():
+    try:
+        sessionStudent = session["student"]
+        if(sessionStudent):
+            return render_template('shared/shared-home.html', message=[
+                "Started Scanning",
+                "The ISBN will be scanned now"
+            ],
+                mode="DETECTED",
+                headerText="Returning Book",
+                redirectLink="/student/return-book-db")
+        else:
+            raise Exception("No Sessions found. Please login first")
+    except Exception as e:
+        return render_template("error.html", headerText="Error", messageText=str(e))
+
+@app.route("/student/return-book-db")
+def returnBookDB():
+    try:
+        sessionStudent = session["student"]
+        if(sessionStudent):
+            # scanning isbn code will go here
+            barcode = "9781451648539"
+            
+            if(barcode):
+                bookCollection = db["books"]
+                userCollection = db["users"]
+                existingBook = bookCollection.find_one(
+                        {"isbn": barcode})
+                if(existingBook):
+
+                    #update book collection
+                    myquery = { "isbn": existingBook["isbn"] }
+                    updatedQuantity =  int(existingBook["quantity"]) + 1
+                    newvalues = { "$set": { "quantity": updatedQuantity  } }
+                    bookCollection.update_one(myquery, newvalues)
+                    newvalues = { "$pull": { "issuedBy": ObjectId(sessionStudent) } }
+                    bookCollection.update_one(myquery, newvalues)
+
+                    #update user collection
+                    myquery = { "_id": ObjectId(session["student"]) }
+                    newvalues = { "$pull": { "booksIssued": existingBook["isbn"] } }
+                    userCollection.update_one(myquery, newvalues)
+
+                    return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/student/select-option")
+                else:
+                    raise Exception("There is no such book in a databse")
+        else:
+            raise Exception("No Sessions found. Please login first")
+    except Exception as e:
+        print(e)
         return render_template("error.html", headerText="Error", messageText=str(e))
 
 # Admin pages route
@@ -217,10 +313,12 @@ def irSensorAdmin():
                 "The ISBN will be scanned now"
             ],
                 mode="DETECTED",
-                headerText="Admin Home Page")
+                headerText="Admin Home Page",
+                redirectLink="/admin/store-book")
         else:
             raise Exception("No Sessions found. Please login first")
     except Exception as e:
+        print(e)
         return render_template("error.html", headerText="Error", messageText=str(e))
 
 
@@ -320,7 +418,8 @@ def storeBookAdminPost():
         if existingBook:
             print("yes")
             myquery = { "isbn": isbn }
-            newvalues = { "$set": { "quantity": quantity } }
+            newQuantity = int(quantity)
+            newvalues = { "$set": { "quantity": newQuantity } }
             collection.update_one(myquery, newvalues)
             return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Updated Data into the Database", redirectLink="/admin/home")
         else:
@@ -330,10 +429,10 @@ def storeBookAdminPost():
                 "description": description,
                 "image": image,
                 "authors": authors,
-                "pageCount": pageCount,
+                "pageCount": int(pageCount),
                 "language": language,
-                "quantity": quantity,
-                "isbn":isbn,
+                "quantity": int(quantity),
+                "isbn":int(isbn),
                 "issuedBy": []
             })
             return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/admin/home")

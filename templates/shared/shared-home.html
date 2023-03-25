@@ -36,12 +36,14 @@
         if("{{ mode }}" == "DETECTED") {
             window.setTimeout(function() {
                 // Move to a new location or you can do something else
-                window.location.href = "/admin/store-book";
+                window.location.href = "{{redirectLink}}";
             }, 3000);
         }
     </script>
 
     {% include 'shared/header.html' %}
+    {% include 'shared/footer.html' %}
+
     <main class="main-contents">
         <div>
             <h1>

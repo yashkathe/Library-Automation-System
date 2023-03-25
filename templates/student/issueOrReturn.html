@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type=text/css href="{{ url_for('static',filename='css/home.css') }}">
+    <title>Document</title>
+</head>
+
+<body>
+    {% include 'shared/header.html' %}
+    {% include 'shared/footer.html' %}
+
+    <main>
+        <div class="main-contents">
+            <h5>Select an Option</h5>
+            <div>
+                <a href="/student/issue-home">
+                    Issue
+                </a>
+                <a href="/student/return-home">
+                    Return
+                </a>
+            </div>
+        </div>
+    </main>
+</body>
+
+</html>
