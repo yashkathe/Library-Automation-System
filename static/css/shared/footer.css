@@ -1,0 +1,32 @@
+a{
+    color: #0060B6;
+    text-decoration: none;
+}
+
+a:hover {
+    color:#00A0C6; 
+    text-decoration:none; 
+    cursor:pointer;  
+}
+
+.footer{
+    position: fixed;
+    bottom: 0;
+    left:0;
+    height: 6vh;
+    width: 100vw;
+    text-align: center;
+}
+
+.footer > a{
+    color: #cebfd6;
+    font-size: 1.5rem;
+    padding: 2px;
+    border-bottom: 1px solid #cebfd6;
+    margin-bottom:8px ;
+}
+
+.footer > a:hover{
+    color: #8082c2;
+    border-bottom: 1px solid #8082c2 ;
+}

@@ -12,9 +12,33 @@
 <body>
     {% include 'shared/header.html' %}
 
+    <script defer>
+        const hideDiv = () => {
+            setTimeout(() => {
+                const box = document.getElementById('box');
+                const backdrop = document.getElementById('backdrop');
+
+                box.style.display = 'none';
+                backdrop.style.display = 'none';
+
+            }, 2000); 
+        }
+
+        hideDiv()
+    </script>
+
+    {% if showBox %}
+    <div id="box" class="modal">
+        <h1>Warning !</h1>
+        <p>Book already exists in a database <br/> Just update the quanity</p>
+    </div>
+    <div id="backdrop" class="backdrop">
+    </div>
+    {% endif %}
+
     <main>
         <div class="form-div">
-            <form method="post" action="/admin/store-book-db" >
+            <form method="post" action="/admin/store-book-db">
                 <div class="inner-form_div">
                     <img src={{image}} />
                 </div>
@@ -52,14 +76,13 @@
 
                 </div>
                 <div class="inner-form_div">
-                    <!-- <div>
-                        <label>Publisher</label>
-                        <input name="publishers" id="publishers" type="text" value="{{publisher}}" />
-                    </div> -->
                     <div>
                         <label>Quantity</label>
-                        <input name="quantity" id="quantity" type="number" required />
+                        <input name="quantity" id="quantity" type="number" value="{{quantity}}" required />
                     </div>
+                </div>
+                <div>
+                    <input name="isbn" id="isbn" type="hidden" value="{{isbn}}" />
                 </div>
                 <div class="inner-form_div">
                     <button class="submit_btn" type="submit">Store Book</button>
