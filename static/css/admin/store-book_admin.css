@@ -4,23 +4,28 @@ form {
     align-items: center;
     justify-content: center;
     height:auto;
-    padding: 1.5rem
 }
 
 label{
     margin-bottom: 1rem;
-    font-size: 1.5rem
+    font-size: 1.5rem;
+}
+
+input {
+    height: 3vh;
+    border-radius: 10px;
+    text-align: center;
 }
 
 .form-div{
     color: #a69cac;
-    margin:20%;
+    margin:25vh 20vw 5vh 20vw;
     margin-top: 5vh;
     border: 0.5px solid #a69cac;
     background-color: #161b33;
     border-radius: 5px;
     height: auto;
-    width: 55vw;
+    width: auto;
 }
 
 .inner-form_div:nth-child(1) > img{
@@ -96,4 +101,18 @@ label{
     transform: translate(-50%, 0);
     color: #cebfd6;
     background-color: #0d0c1d;
+}
+
+.link{
+    width: 100vw;
+    text-align:center;
+    padding-bottom: 5vh;
+}
+
+.link > a{
+    text-decoration: none;
+}
+
+.link > a:hover{
+    cursor: pointer;
 }

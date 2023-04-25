@@ -62,6 +62,8 @@ def loginHaltStudent():
                                        messageText="Not IR sensor detected",
                                        headerText="ERROR")
     except Exception as e:
+        vs = VideoStream(src=0).start()
+        vs.stop()
         return render_template("error.html", headerText="Error", messageText=str(e))
 
 @app.route("/student/auth/login")
@@ -230,7 +232,6 @@ def returnBookDB():
 
 # Admin pages route
 
-
 @app.route("/admin/auth/halt-page")
 def loginHaltAdmin():
     try:
@@ -253,8 +254,7 @@ def loginHaltAdmin():
                                        messageText="Not IR sensor detected",
                                        headerText="ERROR")
     except Exception as e:
-        return render_template("error.html", headerText="Error", messageText=str(e))
-
+        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/")
 
 @app.route("/admin/auth/login")
 def loginAdmin():
@@ -299,7 +299,7 @@ def loginAdmin():
         vs = VideoStream(src=0).start()
         vs.stop()
         print(e)
-        return render_template("error.html", headerText="Error", messageText=str(e))
+        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/")
 
 
 @app.route("/admin/home")
@@ -319,7 +319,7 @@ def irSensorAdmin():
             raise Exception("No Sessions found. Please login first")
     except Exception as e:
         print(e)
-        return render_template("error.html", headerText="Error", messageText=str(e))
+        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/")
 
 
 @app.route("/admin/store-book")
@@ -339,16 +339,14 @@ def storeBookAdmin():
                 # data = ser.read(13)
                 # # decode the barcode data
                 # barcode = data.decode('utf-8')
-                barcode = "9781451648539"
+                barcode = "9780132269933"
                 if (barcode):
                     print(barcode)
                     # check if book with similar isbn exists
                     collection = db["books"]
                     existingBook = collection.find_one(
-                        {"isbn": barcode})
+                        {"isbn": int(barcode)})
                     if (existingBook):
-                        print(existingBook)
-                        print(existingBook['title'])
                         return render_template('admin/store-book.html',
                                                headerText="Store Book Data into Database",
                                                title=existingBook['title'],
@@ -359,7 +357,8 @@ def storeBookAdmin():
                                                quantity=existingBook['quantity'],
                                                image=existingBook['image'],
                                                isbn=barcode,
-                                               showBox="yes"
+                                               showBox="yes",
+                                               quantityLabel="New Quantity"
                                                )
 
                     base_api_link = "https://www.googleapis.com/books/v1/volumes?q=isbn:"
@@ -373,8 +372,10 @@ def storeBookAdmin():
                     if obj["totalItems"] == 0:
                         return render_template("error.html", headerText="Error", messageText="Google Books API has no data for the given ISBN")
 
+                    # IF new book is scanned
                     volume_info = obj["items"][0]
-                    authors = obj["items"][0]["volumeInfo"]["authors"]
+                    author = obj["items"][0]["volumeInfo"]["authors"]
+                    authors =  '%s' % ', '.join(map(str, author))
                     image = obj["items"][0]["volumeInfo"]["imageLinks"]["thumbnail"]
                     title = volume_info["volumeInfo"]["title"]
                     description = textwrap.fill(
@@ -389,12 +390,14 @@ def storeBookAdmin():
                                            pageCount=pageCount,
                                            language=language,
                                            isbn=barcode,
-                                           image=image)
+                                           image=image,
+                                           quantityLabel="Quantity"
+                                           )
         else:
             raise Exception("No Sessions found. Please login first")
     except Exception as e:
         print(e)
-        return render_template("error.html", headerText="Error", messageText=str(e))
+        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/admin/auth/halt-page")
 
 
 @app.route('/admin/store-book-db', methods=['POST'])
@@ -412,41 +415,44 @@ def storeBookAdminPost():
         language = request.form["language"]
         quantity = request.form["quantity"]
         isbn = request.form["isbn"]
+        
+        isbn = int(isbn)
+        pageCount=int(pageCount)
+        quantity=int(quantity)
 
         existingBook = collection.find_one({"isbn": isbn})
 
         if existingBook:
-            print("yes")
+            # Insert data for exisitng book
             myquery = { "isbn": isbn }
-            newQuantity = int(quantity)
-            newvalues = { "$set": { "quantity": newQuantity } }
+            newvalues = { "$set": { "quantity": quantity } }
             collection.update_one(myquery, newvalues)
             return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Updated Data into the Database", redirectLink="/admin/home")
         else:
-            # Insert data
+            # Insert data for new Book
             collection.insert_one({
                 "title": title,
                 "description": description,
                 "image": image,
                 "authors": authors,
-                "pageCount": int(pageCount),
+                "pageCount": pageCount,
                 "language": language,
-                "quantity": int(quantity),
-                "isbn":int(isbn),
+                "quantity": quantity,
+                "isbn":isbn,
                 "issuedBy": []
             })
             return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/admin/home")
 
     except Exception as e:
         print(e)
-        return render_template("error.html", headerText="Error", messageText=str(e))
+        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/admin/auth/halt-page")
 
 
 # Error handling for 404 requests
 
 @app.errorhandler(404)
 def page_not_found(e):
-    return render_template("error.html", headerText="Error 404", messageText="Couldn't find such route")
+    return render_template("error.html", headerText="Error 404", messageText="Couldn't find such route", errorRoute="/")
 
 
 if __name__ == "__main__":
