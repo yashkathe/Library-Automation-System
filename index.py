@@ -48,7 +48,7 @@ def loginHaltStudent():
             i = GPIO.input(11)
             if i == 0:  # When output from motion sensor is HIGH
                 return render_template('shared/halt-page.html',
-                                       messageText="Place your QR Code in front of camera to login now",
+                                       messageText="Place your Issue or Return QR Code in front of camera to login now",
                                        headerText="Student LOGIN",
                                        redirectLink="/student/auth/login",
                                        mode="DETECTED"
@@ -91,15 +91,13 @@ def qrLogin():
                 if (barcodeData):
                     vs.stop()
                     print(barcodeData)
-                    user = collection.find_one(
-                        {"_id": ObjectId(barcodeData)})
-                    if (user):
-                        print(user)
-                        session["student"] = barcodeData
-                        return redirect(url_for("returnOrIssue"))
-                    else:
-                        raise Exception(
-                            "No account found, try again later")
+                    # user = collection.find_one(
+                    #     {"_id": ObjectId(barcodeData)})
+                    index = barcodeData.find('@')  
+                    if index != -1:  
+                        print("Yes")  
+                    else:  
+                        print("No")  
     except Exception as e:
         # Uncomment this if you are using Webcam
         vs = VideoStream(src=0).start()
@@ -340,18 +338,25 @@ def storeBookAdmin():
                 # # decode the barcode data
                 # barcode = data.decode('utf-8')
                 barcode = "9780132269933"
+                # barcode = "9780143303831"
+
                 if (barcode):
-                    print(barcode)
+
                     # check if book with similar isbn exists
                     collection = db["books"]
                     existingBook = collection.find_one(
                         {"isbn": int(barcode)})
+                    
                     if (existingBook):
+                        newAuthors = '%s' % ', '.join(map(str, existingBook['authors'])) 
+                        
+                        print(existingBook['authors'])
+                        print(newAuthors)    
                         return render_template('admin/store-book.html',
                                                headerText="Store Book Data into Database",
                                                title=existingBook['title'],
                                                description=existingBook['description'],
-                                               authors=existingBook['authors'],
+                                               authors= newAuthors,
                                                pageCount=existingBook['pageCount'],
                                                language=existingBook['language'],
                                                quantity=existingBook['quantity'],
@@ -373,6 +378,7 @@ def storeBookAdmin():
                         return render_template("error.html", headerText="Error", messageText="Google Books API has no data for the given ISBN")
 
                     # IF new book is scanned
+                    print(obj["items"][0])
                     volume_info = obj["items"][0]
                     author = obj["items"][0]["volumeInfo"]["authors"]
                     authors =  '%s' % ', '.join(map(str, author))
@@ -403,6 +409,12 @@ def storeBookAdmin():
 @app.route('/admin/store-book-db', methods=['POST'])
 def storeBookAdminPost():
     try:
+        #String to Array function for author
+        def stringToArray(inputString):
+            string_with_commas = inputString
+            array_with_commas = string_with_commas.split(",")
+            return array_with_commas
+
         # Database settings
         collection = db["books"]
 
@@ -410,17 +422,21 @@ def storeBookAdminPost():
         title = request.form["title"]
         description = request.form["description"]
         image = request.form["imageLink"]
-        authors = request.form["authors"]
+        author = request.form["authors"]
         pageCount = request.form["pageCount"]
         language = request.form["language"]
         quantity = request.form["quantity"]
         isbn = request.form["isbn"]
         
+        #Modify Data
         isbn = int(isbn)
         pageCount=int(pageCount)
         quantity=int(quantity)
+        authors = stringToArray(author)
 
         existingBook = collection.find_one({"isbn": isbn})
+        print("authors1",authors)
+        print("type1",type(authors))
 
         if existingBook:
             # Insert data for exisitng book
@@ -430,6 +446,8 @@ def storeBookAdminPost():
             return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Updated Data into the Database", redirectLink="/admin/home")
         else:
             # Insert data for new Book
+            print("authors2",authors)
+            print("type2",type(authors))
             collection.insert_one({
                 "title": title,
                 "description": description,
