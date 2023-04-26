@@ -15,9 +15,10 @@ import time
 import serial
 from mfrc522 import SimpleMFRC522
 from time import sleep
+import env
 
 # DataBase config
-cluster = MongoClient(os.environ.get("MONGO_URI"))
+cluster = MongoClient(env.MONGO_URI)
 
 # GPIO config
 GPIO.setwarnings(False)
@@ -36,9 +37,11 @@ db = cluster["LibraryDB"]
 def home():
     session["student"] = None
     session["admin"] = None
+    session["isbn"] = None
     return render_template('home.html', headerText="Library automation Platform")
 
 # Student pages route
+
 
 @app.route("/student/auth/halt-page")
 def loginHaltStudent():
@@ -64,7 +67,8 @@ def loginHaltStudent():
     except Exception as e:
         vs = VideoStream(src=0).start()
         vs.stop()
-        return render_template("error.html", headerText="Error", messageText=str(e))
+        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/")
+
 
 @app.route("/student/auth/login")
 def qrLogin():
@@ -91,40 +95,46 @@ def qrLogin():
                 if (barcodeData):
                     vs.stop()
                     print(barcodeData)
-                    # user = collection.find_one(
-                    #     {"_id": ObjectId(barcodeData)})
-                    index = barcodeData.find('@')  
-                    if index != -1:  
-                        print("Yes")  
-                    else:  
-                        print("No")  
+                    user = collection.find_one(
+                        {"_id": ObjectId(barcodeData)})
+                    print(user)
+                    # Check for tyoe of barcode and return accordingly
+                    index = barcodeData.find('@')
+                    if index != -1:
+                        i = barcodeData.index("@")
+                        user = barcodeData[0:i]
+                        isbn = barcodeData[i+1:len(barcodeData)]
+                        session["user"] = user
+                        session["isbn"] = isbn
+                        return render_template('shared/shared-home.html', message=[
+                            "Started Scanning",
+                            "The ISBN will be scanned now"
+                        ],
+                            mode="DETECTED",
+                            headerText="Returning Book",
+                            redirectLink="/student/return-book-db")
+                    else:
+                        session["student"] = str(user["_id"])
+                        return render_template('shared/shared-home.html', message=[
+                            "Started Scanning",
+                            "The ISBN will be scanned now"
+                        ],
+                            mode="DETECTED",
+                            headerText="Issuing Book",
+                            redirectLink="/student/issue-book-db")
     except Exception as e:
         # Uncomment this if you are using Webcam
         vs = VideoStream(src=0).start()
         vs.stop()
         print(e)
-        return render_template("error.html", headerText="Error", messageText=str(e))
-
-
-@app.route("/student/select-option")
-def returnOrIssue():
-    try:
-        sessionStudent = session["student"]
-        if(sessionStudent):
-            collection = db["users"]
-            user = collection.find_one({"_id": ObjectId(session["student"])})
-            return render_template('student/issueOrReturn.html', headerText="Welcome " + user["email"])
-        else:
-            raise Exception("No Sessions found. Please login first")
-    except Exception as e:
-        return render_template("error.html", headerText="Error", messageText=str(e))
+        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/student/auth/halt-page")
 
 
 @app.route("/student/issue-home")
 def issueBook():
     try:
         sessionStudent = session["student"]
-        if(sessionStudent):
+        if (sessionStudent):
             return render_template('shared/shared-home.html', message=[
                 "Started Scanning",
                 "The ISBN will be scanned now"
@@ -135,50 +145,58 @@ def issueBook():
         else:
             raise Exception("No Sessions found. Please login first")
     except Exception as e:
-        return render_template("error.html", headerText="Error", messageText=str(e))
+        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/student/auth/halt-page")
+
 
 @app.route("/student/issue-book-db")
 def issueBookDB():
     try:
         sessionStudent = session["student"]
-        if(sessionStudent):
+        print(sessionStudent)
+        if (sessionStudent):
             # scanning isbn code will go here
-            barcode = "9781451648539"
-            
-            if(barcode):
+            barcode = 9780132269933
+
+            if (barcode):
                 bookCollection = db["books"]
                 userCollection = db["users"]
                 existingBook = bookCollection.find_one(
-                        {"isbn": barcode})
-                if(existingBook):
+                    {"isbn": barcode})
+                if (existingBook):
 
-                    #update book collection
-                    myquery = { "isbn": existingBook["isbn"] }
-                    updatedQuantity =  int(existingBook["quantity"]) - 1
-                    newvalues = { "$set": { "quantity": updatedQuantity  } }
+                    # update book collection
+                    myquery = {"isbn": existingBook["isbn"]}
+                    updatedQuantity = int(existingBook["quantity"]) - 1
+                    newvalues = {"$set": {"quantity": updatedQuantity}}
+
                     bookCollection.update_one(myquery, newvalues)
-                    newvalues = { "$push": { "issuedBy": ObjectId(sessionStudent) } }
+                    newvalues = {
+                        "$push": {"issuedBy": ObjectId(sessionStudent)}}
+                    
                     bookCollection.update_one(myquery, newvalues)
 
-                    #update user collection
-                    myquery = { "_id": ObjectId(session["student"]) }
-                    newvalues = { "$push": { "booksIssued": existingBook["isbn"] } }
+                    # update user collection
+                    myquery = {"_id": ObjectId(session["student"])}
+                    newvalues = {
+                        "$push": {"booksIssued": ObjectId(existingBook["_id"])}}
+                    
                     userCollection.update_one(myquery, newvalues)
 
-                    return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/student/select-option")
+                    return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/student/auth/halt-page")
                 else:
                     raise Exception("There is no such book in a databse")
         else:
             raise Exception("No Sessions found. Please login first")
     except Exception as e:
         print(e)
-        return render_template("error.html", headerText="Error", messageText=str(e))
+        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/student/auth/halt-page")
+
 
 @app.route("/student/return-home")
 def returnBook():
     try:
         sessionStudent = session["student"]
-        if(sessionStudent):
+        if (sessionStudent):
             return render_template('shared/shared-home.html', message=[
                 "Started Scanning",
                 "The ISBN will be scanned now"
@@ -189,46 +207,53 @@ def returnBook():
         else:
             raise Exception("No Sessions found. Please login first")
     except Exception as e:
-        return render_template("error.html", headerText="Error", messageText=str(e))
+        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/student/auth/halt-page")
+
 
 @app.route("/student/return-book-db")
 def returnBookDB():
     try:
         sessionStudent = session["student"]
-        if(sessionStudent):
+        sessionISBN = session["isbn"]
+        if (sessionStudent):
             # scanning isbn code will go here
             barcode = "9781451648539"
-            
-            if(barcode):
-                bookCollection = db["books"]
-                userCollection = db["users"]
-                existingBook = bookCollection.find_one(
+
+            if (barcode):
+                if (int(barcode) == sessionISBN):
+                    bookCollection = db["books"]
+                    userCollection = db["users"]
+                    existingBook = bookCollection.find_one(
                         {"isbn": barcode})
-                if(existingBook):
+                    if (existingBook):
 
-                    #update book collection
-                    myquery = { "isbn": existingBook["isbn"] }
-                    updatedQuantity =  int(existingBook["quantity"]) + 1
-                    newvalues = { "$set": { "quantity": updatedQuantity  } }
-                    bookCollection.update_one(myquery, newvalues)
-                    newvalues = { "$pull": { "issuedBy": ObjectId(sessionStudent) } }
-                    bookCollection.update_one(myquery, newvalues)
+                        # update book collection
+                        myquery = {"isbn": existingBook["isbn"]}
+                        updatedQuantity = int(existingBook["quantity"]) + 1
+                        newvalues = {"$set": {"quantity": updatedQuantity}}
+                        bookCollection.update_one(myquery, newvalues)
+                        newvalues = {
+                            "$pull": {"issuedBy": ObjectId(sessionStudent)}}
+                        bookCollection.update_one(myquery, newvalues)
 
-                    #update user collection
-                    myquery = { "_id": ObjectId(session["student"]) }
-                    newvalues = { "$pull": { "booksIssued": existingBook["isbn"] } }
-                    userCollection.update_one(myquery, newvalues)
-
-                    return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/student/select-option")
+                        # update user collection
+                        myquery = {"_id": ObjectId(session["student"])}
+                        newvalues = {
+                            "$pull": {"booksIssued": ObjectId(existingBook["_id"])}}
+                        userCollection.update_one(myquery, newvalues)
+                        return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/student/auth/halt-page")
+                    else:
+                        raise Exception("There is no such book in a databse")
                 else:
                     raise Exception("There is no such book in a databse")
         else:
             raise Exception("No Sessions found. Please login first")
     except Exception as e:
         print(e)
-        return render_template("error.html", headerText="Error", messageText=str(e))
+        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/student/auth/halt-page")
 
 # Admin pages route
+
 
 @app.route("/admin/auth/halt-page")
 def loginHaltAdmin():
@@ -254,6 +279,7 @@ def loginHaltAdmin():
     except Exception as e:
         return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/")
 
+
 @app.route("/admin/auth/login")
 def loginAdmin():
     try:
@@ -266,10 +292,7 @@ def loginAdmin():
         ap = argparse.ArgumentParser()
         ap.add_argument("-o", "--output", type=str, default="barcodes.csv",
                         help="path to output CSV file containing barcodes")
-        # Uncomment this if you are using Webcam
         vs = VideoStream(src=0).start()
-        args = vars(ap.parse_args())
-        # vs = VideoStream(usePiCamera=True).start()  # For Pi Camera
         time.sleep(0.1)
 
         while True:
@@ -285,19 +308,17 @@ def loginAdmin():
                     vs.stop()
                     print(barcodeData)
                     user = collection.find_one({"_id": ObjectId(barcodeData)})
-                    print(user)
-                    if (user):
-                        print(user)
+                    if (user and user["isAdmin"] == True):
                         session["admin"] = barcodeData
                         return redirect(url_for("irSensorAdmin"))
                     else:
-                        raise Exception("No account found, try again later")
+                        raise Exception("You are not authorised")
     except Exception as e:
         # Uncomment this if you are using Webcam
         vs = VideoStream(src=0).start()
         vs.stop()
         print(e)
-        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/")
+        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/admin/auth/halt-page")
 
 
 @app.route("/admin/home")
@@ -317,7 +338,7 @@ def irSensorAdmin():
             raise Exception("No Sessions found. Please login first")
     except Exception as e:
         print(e)
-        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/")
+        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/admin/auth/halt-page")
 
 
 @app.route("/admin/store-book")
@@ -337,7 +358,7 @@ def storeBookAdmin():
                 # data = ser.read(13)
                 # # decode the barcode data
                 # barcode = data.decode('utf-8')
-                barcode = "9780132269933"
+                barcode = 9780132269933
                 # barcode = "9780143303831"
 
                 if (barcode):
@@ -346,17 +367,18 @@ def storeBookAdmin():
                     collection = db["books"]
                     existingBook = collection.find_one(
                         {"isbn": int(barcode)})
-                    
+
                     if (existingBook):
-                        newAuthors = '%s' % ', '.join(map(str, existingBook['authors'])) 
-                        
+                        newAuthors = '%s' % ', '.join(
+                            map(str, existingBook['authors']))
+
                         print(existingBook['authors'])
-                        print(newAuthors)    
+                        print(newAuthors)
                         return render_template('admin/store-book.html',
                                                headerText="Store Book Data into Database",
                                                title=existingBook['title'],
                                                description=existingBook['description'],
-                                               authors= newAuthors,
+                                               authors=newAuthors,
                                                pageCount=existingBook['pageCount'],
                                                language=existingBook['language'],
                                                quantity=existingBook['quantity'],
@@ -381,7 +403,7 @@ def storeBookAdmin():
                     print(obj["items"][0])
                     volume_info = obj["items"][0]
                     author = obj["items"][0]["volumeInfo"]["authors"]
-                    authors =  '%s' % ', '.join(map(str, author))
+                    authors = '%s' % ', '.join(map(str, author))
                     image = obj["items"][0]["volumeInfo"]["imageLinks"]["thumbnail"]
                     title = volume_info["volumeInfo"]["title"]
                     description = textwrap.fill(
@@ -409,7 +431,7 @@ def storeBookAdmin():
 @app.route('/admin/store-book-db', methods=['POST'])
 def storeBookAdminPost():
     try:
-        #String to Array function for author
+        # String to Array function for author
         def stringToArray(inputString):
             string_with_commas = inputString
             array_with_commas = string_with_commas.split(",")
@@ -427,27 +449,27 @@ def storeBookAdminPost():
         language = request.form["language"]
         quantity = request.form["quantity"]
         isbn = request.form["isbn"]
-        
-        #Modify Data
+
+        # Modify Data
         isbn = int(isbn)
-        pageCount=int(pageCount)
-        quantity=int(quantity)
+        pageCount = int(pageCount)
+        quantity = int(quantity)
         authors = stringToArray(author)
 
         existingBook = collection.find_one({"isbn": isbn})
-        print("authors1",authors)
-        print("type1",type(authors))
+        print("authors1", authors)
+        print("type1", type(authors))
 
         if existingBook:
             # Insert data for exisitng book
-            myquery = { "isbn": isbn }
-            newvalues = { "$set": { "quantity": quantity } }
+            myquery = {"isbn": isbn}
+            newvalues = {"$set": {"quantity": quantity}}
             collection.update_one(myquery, newvalues)
             return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Updated Data into the Database", redirectLink="/admin/home")
         else:
             # Insert data for new Book
-            print("authors2",authors)
-            print("type2",type(authors))
+            print("authors2", authors)
+            print("type2", type(authors))
             collection.insert_one({
                 "title": title,
                 "description": description,
@@ -456,7 +478,7 @@ def storeBookAdminPost():
                 "pageCount": pageCount,
                 "language": language,
                 "quantity": quantity,
-                "isbn":isbn,
+                "isbn": isbn,
                 "issuedBy": []
             })
             return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/admin/home")
