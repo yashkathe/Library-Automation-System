@@ -4,7 +4,8 @@ main {
     border: 0.5px solid #a69cac;
     background-color: #161b33;
     border-radius: 5px;
-    height: 40vh;
+    min-height: 40vh;
+    max-height: 50vh;
     width: 60vw;
     display: flex;
     flex-direction: column;
@@ -14,4 +15,29 @@ main {
 
 div > h2{
     padding: 1.2rem
+}
+
+.buttons{
+    width:100%;
+    display:flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.buttons > a {
+    margin: 3vw;
+    color:rgb(175, 168, 157);
+    border: 1px solid rgb(175, 168, 157);
+    padding: 1rem;
+    border-radius:25px
+}
+
+.image{
+    width:100%;
+    display:flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 5vh;
 }

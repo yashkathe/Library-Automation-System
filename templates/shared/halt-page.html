@@ -11,26 +11,37 @@
 
 <body>
     <script defer>
-        // if("{{ mode }}" == "DETECTED") {
-            window.setTimeout(function() {
-                // Move to a new location or you can do something else
-                window.location.href = "{{ redirectLink }}";
-            }, 1300);
-        // }
+        if("{{ extraButtons }}" != "TRUE"){
+        window.setTimeout(function() {
+            window.location.href = "{{ redirectLink }}";
+        }, 3000);}
     </script>
 
     {% include 'shared/header.html' %}
-    {% include 'shared/footer.html' %}
 
     <main>
         <div>
             <h2>
                 {{ messageText }}
-            </h2>
+            </h2>            
+            {% if bookImage %}
+            <div class="image" >
+                <img src="{{bookImage}}" alt="{{bookImage}}"/>
+            </div>
+            {% endif %} 
+            {% if extraButtons == 'TRUE' %}
+            <div class="buttons">
+                <a href="/admin/home">Add another book</a>
+                <a href="/">Return Home</a>
+            </div>
+            {% endif %}
         </div>
+        {% if extraButtons != 'TRUE' %}
         <div>
             {% include 'shared/spinner2.html' %}
+            {% include 'shared/footer.html' %}
         </div>
+        {% endif %}
     </main>
 
 </body>

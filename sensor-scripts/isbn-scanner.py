@@ -3,7 +3,7 @@ import time
 import os
 
 # configure the serial port
-ser = serial.Serial('/dev/ttyprintk', 9600, timeout=1)
+ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
 
 # wait for the scanner to initialize
 time.sleep(1)

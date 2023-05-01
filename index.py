@@ -9,32 +9,35 @@ import cv2
 from bson import ObjectId
 import json
 import textwrap
-import os
 import imutils
 import time
 import serial
 from mfrc522 import SimpleMFRC522
-from time import sleep
+import time
 import env
+import sys
 
 # DataBase config
 cluster = MongoClient(env.MONGO_URI)
+db = cluster["LibraryDB"]
 
 # GPIO config
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BOARD)
 
+# Flask Settings
 app = Flask(__name__)
 app.secret_key = "XXt4FjJOkvMteX9YUu30f3cidxr3WbFv"
 app.debug = True
-
-db = cluster["LibraryDB"]
 
 # Home page route
 
 
 @app.route("/")
 def home():
+    vs = VideoStream(src=0).start()
+    time.sleep(1)
+    vs.stop()
     session["student"] = None
     session["admin"] = None
     session["isbn"] = None
@@ -58,7 +61,7 @@ def loginHaltStudent():
                                        )
             elif i == 1:
                 return render_template('shared/halt-page.html',
-                                       messageText="interact with IR sensor when you are ready with your login barcode",
+                                       messageText="interact with IR sensor when you are ready with your QR code",
                                        headerText="Student Login")
             else:
                 return render_template('shared/halt-page.html',
@@ -80,8 +83,6 @@ def qrLogin():
         ap.add_argument("-o", "--output", type=str, default="barcodes.csv",
                         help="path to output CSV file containing barcodes")
         vs = VideoStream(src=0).start()
-        args = vars(ap.parse_args())
-        # vs = VideoStream(usePiCamera=True).start()  # For Pi Camera
         time.sleep(0.1)
         while True:
             frame = vs.read()
@@ -98,7 +99,7 @@ def qrLogin():
                     user = collection.find_one(
                         {"_id": ObjectId(barcodeData)})
                     print(user)
-                    # Check for tyoe of barcode and return accordingly
+                    # Check for type of QRcode(return or issue) and return accordingly
                     index = barcodeData.find('@')
                     if index != -1:
                         i = barcodeData.index("@")
@@ -123,11 +124,10 @@ def qrLogin():
                             headerText="Issuing Book",
                             redirectLink="/student/issue-book-db")
     except Exception as e:
-        # Uncomment this if you are using Webcam
         vs = VideoStream(src=0).start()
         vs.stop()
         print(e)
-        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/student/auth/halt-page")
+        return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/")
 
 
 @app.route("/student/issue-home")
@@ -154,8 +154,15 @@ def issueBookDB():
         sessionStudent = session["student"]
         print(sessionStudent)
         if (sessionStudent):
-            # scanning isbn code will go here
-            barcode = 9780132269933
+            ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+            time.sleep(1)
+
+            while True:
+                data = ser.read(13)
+                barcode = data.decode('utf-8')
+                if (barcode):
+                    barcode = int(barcode)
+                    break
 
             if (barcode):
                 bookCollection = db["books"]
@@ -172,17 +179,17 @@ def issueBookDB():
                     bookCollection.update_one(myquery, newvalues)
                     newvalues = {
                         "$push": {"issuedBy": ObjectId(sessionStudent)}}
-                    
+
                     bookCollection.update_one(myquery, newvalues)
 
                     # update user collection
                     myquery = {"_id": ObjectId(session["student"])}
                     newvalues = {
                         "$push": {"booksIssued": ObjectId(existingBook["_id"])}}
-                    
+
                     userCollection.update_one(myquery, newvalues)
 
-                    return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/student/auth/halt-page")
+                    return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Issued Your '" + existingBook["title"]  + "' Book", redirectLink="/student/auth/halt-page", bookImage=existingBook["image"])
                 else:
                     raise Exception("There is no such book in a databse")
         else:
@@ -216,8 +223,15 @@ def returnBookDB():
         sessionStudent = session["student"]
         sessionISBN = session["isbn"]
         if (sessionStudent):
-            # scanning isbn code will go here
-            barcode = "9781451648539"
+            ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+            time.sleep(1)
+            
+            while True:
+                data = ser.read(13)
+                barcode = data.decode('utf-8')
+                if(barcode):
+                    barcode = int(barcode)
+                    break
 
             if (barcode):
                 if (int(barcode) == sessionISBN):
@@ -346,81 +360,71 @@ def storeBookAdmin():
     try:
         sessionAdmin = session["admin"]
         if (sessionAdmin):
+            barcode = None
+            ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+            # wait for the scanner to initialize
+            time.sleep(1)
             while True:
-                # # configure the serial port
-                # ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
-
-                # # wait for the scanner to initialize
-                # time.sleep(1)
-
-                # barcode = ""
-                # # read the data from the serial port
-                # data = ser.read(13)
-                # # decode the barcode data
-                # barcode = data.decode('utf-8')
-                barcode = 9780132269933
-                # barcode = "9780143303831"
-
-                if (barcode):
-
-                    # check if book with similar isbn exists
-                    collection = db["books"]
-                    existingBook = collection.find_one(
-                        {"isbn": int(barcode)})
-
-                    if (existingBook):
-                        newAuthors = '%s' % ', '.join(
-                            map(str, existingBook['authors']))
-
-                        print(existingBook['authors'])
-                        print(newAuthors)
-                        return render_template('admin/store-book.html',
-                                               headerText="Store Book Data into Database",
-                                               title=existingBook['title'],
-                                               description=existingBook['description'],
-                                               authors=newAuthors,
-                                               pageCount=existingBook['pageCount'],
-                                               language=existingBook['language'],
-                                               quantity=existingBook['quantity'],
-                                               image=existingBook['image'],
-                                               isbn=barcode,
-                                               showBox="yes",
-                                               quantityLabel="New Quantity"
-                                               )
-
-                    base_api_link = "https://www.googleapis.com/books/v1/volumes?q=isbn:"
-                    with urllib.request.urlopen(base_api_link + barcode) as f:
-                        text = f.read()
-                    decoded_text = text.decode("utf-8")
-                    # deserializes decoded_text to a Python object
-                    obj = json.loads(decoded_text)
-
-                    # check if books exists
-                    if obj["totalItems"] == 0:
-                        return render_template("error.html", headerText="Error", messageText="Google Books API has no data for the given ISBN")
-
-                    # IF new book is scanned
-                    print(obj["items"][0])
-                    volume_info = obj["items"][0]
-                    author = obj["items"][0]["volumeInfo"]["authors"]
-                    authors = '%s' % ', '.join(map(str, author))
-                    image = obj["items"][0]["volumeInfo"]["imageLinks"]["thumbnail"]
-                    title = volume_info["volumeInfo"]["title"]
-                    description = textwrap.fill(
-                        volume_info["searchInfo"]["textSnippet"], width=65)
-                    pageCount = volume_info["volumeInfo"]["pageCount"]
-                    language = volume_info["volumeInfo"]["language"]
+                data = ser.read(13)
+                barcode = data.decode('utf-8')
+                print('Barcode:', barcode)
+                if barcode:
+                    break
+            if (barcode):
+                # check if book with similar isbn exists
+                collection = db["books"]
+                existingBook = collection.find_one(
+                    {"isbn": int(barcode)})
+                # if similar book exists
+                if (existingBook):
+                    newAuthors = '%s' % ', '.join(
+                        map(str, existingBook['authors']))
+                    print(existingBook['authors'])
+                    print(newAuthors)
                     return render_template('admin/store-book.html',
                                            headerText="Store Book Data into Database",
-                                           title=title,
-                                           description=description,
-                                           authors=authors,
-                                           pageCount=pageCount,
-                                           language=language,
+                                           title=existingBook['title'],
+                                           description=existingBook['description'],
+                                           authors=newAuthors,
+                                           pageCount=existingBook['pageCount'],
+                                           language=existingBook['language'],
+                                           quantity=existingBook['quantity'],
+                                           image=existingBook['image'],
                                            isbn=barcode,
-                                           image=image,
-                                           quantityLabel="Quantity"
+                                           showBox="yes",
+                                           quantityLabel="New Quantity"
                                            )
+                base_api_link = "https://www.googleapis.com/books/v1/volumes?q=isbn:"
+                with urllib.request.urlopen(base_api_link + barcode) as f:
+                    text = f.read()
+                decoded_text = text.decode("utf-8")
+                # deserializes decoded_text to a Python object
+                obj = json.loads(decoded_text)
+                # check if books exists
+                if obj["totalItems"] == 0:
+                    return render_template("error.html", headerText="Error", messageText="Google Books API has no data for the given ISBN")
+                # If isbn for new book is scanned
+                print(obj["items"][0])
+                volume_info = obj["items"][0]
+                author = obj["items"][0]["volumeInfo"]["authors"]
+                authors = '%s' % ', '.join(map(str, author))
+                image = obj["items"][0]["volumeInfo"]["imageLinks"]["thumbnail"]
+                title = volume_info["volumeInfo"]["title"]
+                description = textwrap.fill(
+                    volume_info["searchInfo"]["textSnippet"], width=65)
+                pageCount = volume_info["volumeInfo"]["pageCount"]
+                language = volume_info["volumeInfo"]["language"]
+                return render_template('admin/store-book.html',
+                                       headerText="Store Book Data into Database",
+                                       title=title,
+                                       description=description,
+                                       authors=authors,
+                                       pageCount=pageCount,
+                                       language=language,
+                                       isbn=barcode,
+                                       image=image,
+                                       quantityLabel="Quantity"
+                                       )
         else:
             raise Exception("No Sessions found. Please login first")
     except Exception as e:
@@ -461,11 +465,12 @@ def storeBookAdminPost():
         print("type1", type(authors))
 
         if existingBook:
+            newQuantity = existingBook["quantity"] + quantity
             # Insert data for exisitng book
             myquery = {"isbn": isbn}
-            newvalues = {"$set": {"quantity": quantity}}
+            newvalues = {"$set": {"quantity": newQuantity}}
             collection.update_one(myquery, newvalues)
-            return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Updated Data into the Database", redirectLink="/admin/home")
+            return render_template('shared/halt-page.html', headerText="Choose an option", messageText="Successfully Updated Data into the Database", redirectLink="/admin/home", extraButtons="TRUE")
         else:
             # Insert data for new Book
             print("authors2", authors)
@@ -481,7 +486,7 @@ def storeBookAdminPost():
                 "isbn": isbn,
                 "issuedBy": []
             })
-            return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/admin/home")
+            return render_template('shared/halt-page.html', headerText="Choose an option", messageText="Successfully Stored Data into the Database", redirectLink="/admin/home", extraButtons="TRUE")
 
     except Exception as e:
         print(e)
