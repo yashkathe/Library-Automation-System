@@ -13,9 +13,8 @@ import imutils
 import time
 import serial
 from mfrc522 import SimpleMFRC522
-import time
 import env
-import sys
+from datetime import datetime
 
 # DataBase config
 cluster = MongoClient(env.MONGO_URI)
@@ -57,16 +56,21 @@ def loginHaltStudent():
                                        messageText="Place your Issue or Return QR Code in front of camera to login now",
                                        headerText="Student LOGIN",
                                        redirectLink="/student/auth/login",
-                                       mode="DETECTED"
+                                       mode="DETECTED",
+                                       haltTime=3000
                                        )
             elif i == 1:
                 return render_template('shared/halt-page.html',
-                                       messageText="interact with IR sensor when you are ready with your QR code",
-                                       headerText="Student Login")
+                                       messageText="Interact with IR sensor when you are ready with your QR code",
+                                       headerText="Student Login",
+                                       haltTime=1000
+                                       )
             else:
                 return render_template('shared/halt-page.html',
                                        messageText="Not IR sensor detected",
-                                       headerText="ERROR")
+                                       headerText="ERROR",
+                                       haltTime=4000
+                                       )
     except Exception as e:
         vs = VideoStream(src=0).start()
         vs.stop()
@@ -96,16 +100,18 @@ def qrLogin():
                 if (barcodeData):
                     vs.stop()
                     print(barcodeData)
-                    user = collection.find_one(
-                        {"_id": ObjectId(barcodeData)})
-                    print(user)
                     # Check for type of QRcode(return or issue) and return accordingly
                     index = barcodeData.find('@')
                     if index != -1:
+                        # For returning QR codes
                         i = barcodeData.index("@")
-                        user = barcodeData[0:i]
+                        userBarcode = barcodeData[0:i]
                         isbn = barcodeData[i+1:len(barcodeData)]
-                        session["user"] = user
+                        print(userBarcode)
+                        print(isbn)
+                        user = collection.find_one(
+                            {"_id": ObjectId(userBarcode)})
+                        session["student"] = str(user["_id"])
                         session["isbn"] = isbn
                         return render_template('shared/shared-home.html', message=[
                             "Started Scanning",
@@ -115,6 +121,10 @@ def qrLogin():
                             headerText="Returning Book",
                             redirectLink="/student/return-book-db")
                     else:
+                        # For issuing QR codes
+                        user = collection.find_one(
+                            {"_id": ObjectId(barcodeData)})
+                        print(user)
                         session["student"] = str(user["_id"])
                         return render_template('shared/shared-home.html', message=[
                             "Started Scanning",
@@ -178,18 +188,30 @@ def issueBookDB():
 
                     bookCollection.update_one(myquery, newvalues)
                     newvalues = {
-                        "$push": {"issuedBy": ObjectId(sessionStudent)}}
+                        "$push": {"issuedBy": {
+                            "user": ObjectId(sessionStudent),
+                            "time": datetime.today().strftime('%Y-%m-%d')
+                        }}}
 
                     bookCollection.update_one(myquery, newvalues)
 
                     # update user collection
                     myquery = {"_id": ObjectId(session["student"])}
                     newvalues = {
-                        "$push": {"booksIssued": ObjectId(existingBook["_id"])}}
+                        "$push": {"booksIssued": {
+                            "book": ObjectId(existingBook["_id"]),
+                            "time": datetime.today().strftime('%Y-%m-%d')
+                        }}}
 
                     userCollection.update_one(myquery, newvalues)
 
-                    return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Issued Your '" + existingBook["title"]  + "' Book", redirectLink="/student/auth/halt-page", bookImage=existingBook["image"])
+                    return render_template('shared/halt-page.html',
+                                           headerText="Issuing Successful",
+                                           messageText="Successfully Issued Your '" +
+                                           existingBook["title"] + "' Book",
+                                           redirectLink="/student/auth/halt-page",
+                                           bookImage=existingBook["image"],
+                                           haltTime=4000)
                 else:
                     raise Exception("There is no such book in a databse")
         else:
@@ -225,16 +247,16 @@ def returnBookDB():
         if (sessionStudent):
             ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
             time.sleep(1)
-            
+
             while True:
                 data = ser.read(13)
                 barcode = data.decode('utf-8')
-                if(barcode):
+                if (barcode):
                     barcode = int(barcode)
                     break
 
             if (barcode):
-                if (int(barcode) == sessionISBN):
+                if (int(barcode) == int(sessionISBN)):
                     bookCollection = db["books"]
                     userCollection = db["users"]
                     existingBook = bookCollection.find_one(
@@ -247,15 +269,26 @@ def returnBookDB():
                         newvalues = {"$set": {"quantity": updatedQuantity}}
                         bookCollection.update_one(myquery, newvalues)
                         newvalues = {
-                            "$pull": {"issuedBy": ObjectId(sessionStudent)}}
-                        bookCollection.update_one(myquery, newvalues)
+                            "$pull": {"issuedBy": {
+                                "user": ObjectId(sessionStudent)
+                            }}}
+                        bookCollection.update_one(myquery, newvalues, True)
 
                         # update user collection
                         myquery = {"_id": ObjectId(session["student"])}
                         newvalues = {
-                            "$pull": {"booksIssued": ObjectId(existingBook["_id"])}}
-                        userCollection.update_one(myquery, newvalues)
-                        return render_template('shared/halt-page.html', headerText="Redirecting", messageText="Successfully Stored Data into the Database", redirectLink="/student/auth/halt-page")
+                            "$pull": {"booksIssued": {
+                                "book": ObjectId(existingBook["_id"])
+                            }}}
+                        userCollection.update_one(myquery, newvalues, True)
+                        return render_template('shared/halt-page.html',
+                                               headerText="Return Successful",
+                                               messageText="Successfully Returned Your '" +
+                                               existingBook["title"] +
+                                               "' Book",
+                                               redirectLink="/student/auth/halt-page",
+                                               bookImage=existingBook["image"],
+                                               haltTime=5000)
                     else:
                         raise Exception("There is no such book in a databse")
                 else:
@@ -280,16 +313,21 @@ def loginHaltAdmin():
                                        messageText="Place your QR Code in front of camera to login now",
                                        headerText="Admin LOGIN",
                                        redirectLink="/admin/auth/login",
-                                       mode="DETECTED"
+                                       mode="DETECTED",
+                                       haltTime=4000
                                        )
             elif i == 1:
                 return render_template('shared/halt-page.html',
-                                       messageText="interact with IR sensor when you are ready with your login barcode",
-                                       headerText="Admin Login")
+                                       messageText="Interact with IR sensor when you are ready with your login barcode",
+                                       headerText="Admin Login",
+                                       haltTime=1000
+                                       )
             else:
                 return render_template('shared/halt-page.html',
                                        messageText="Not IR sensor detected",
-                                       headerText="ERROR")
+                                       headerText="ERROR",
+                                       haltTime=3000
+                                       )
     except Exception as e:
         return render_template("error.html", headerText="Error", messageText=str(e), errorRoute="/")
 
@@ -470,7 +508,12 @@ def storeBookAdminPost():
             myquery = {"isbn": isbn}
             newvalues = {"$set": {"quantity": newQuantity}}
             collection.update_one(myquery, newvalues)
-            return render_template('shared/halt-page.html', headerText="Choose an option", messageText="Successfully Updated Data into the Database", redirectLink="/admin/home", extraButtons="TRUE")
+            return render_template('shared/halt-page.html',
+                                   headerText="Choose an option",
+                                   messageText="Successfully Updated Data into the Database",
+                                   redirectLink="/admin/home",
+                                   extraButtons="TRUE",
+                                   haltTime=5000)
         else:
             # Insert data for new Book
             print("authors2", authors)
@@ -486,7 +529,12 @@ def storeBookAdminPost():
                 "isbn": isbn,
                 "issuedBy": []
             })
-            return render_template('shared/halt-page.html', headerText="Choose an option", messageText="Successfully Stored Data into the Database", redirectLink="/admin/home", extraButtons="TRUE")
+            return render_template('shared/halt-page.html',
+                                   headerText="Choose an option",
+                                   messageText="Successfully Stored Data into the Database",
+                                   redirectLink="/admin/home",
+                                   extraButtons="TRUE",
+                                   haltTime=5000)
 
     except Exception as e:
         print(e)

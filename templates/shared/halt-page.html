@@ -14,7 +14,7 @@
         if("{{ extraButtons }}" != "TRUE"){
         window.setTimeout(function() {
             window.location.href = "{{ redirectLink }}";
-        }, 3000);}
+        }, "{{haltTime}}");}
     </script>
 
     {% include 'shared/header.html' %}
