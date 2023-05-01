@@ -34,9 +34,6 @@ app.debug = True
 
 @app.route("/")
 def home():
-    vs = VideoStream(src=0).start()
-    time.sleep(1)
-    vs.stop()
     session["student"] = None
     session["admin"] = None
     session["isbn"] = None
@@ -190,7 +187,7 @@ def issueBookDB():
                     newvalues = {
                         "$push": {"issuedBy": {
                             "user": ObjectId(sessionStudent),
-                            "time": datetime.today().strftime('%Y-%m-%d')
+                            "time": datetime.today().strftime('%d %b %Y')
                         }}}
 
                     bookCollection.update_one(myquery, newvalues)
@@ -200,7 +197,7 @@ def issueBookDB():
                     newvalues = {
                         "$push": {"booksIssued": {
                             "book": ObjectId(existingBook["_id"]),
-                            "time": datetime.today().strftime('%Y-%m-%d')
+                            "time": datetime.today().strftime('%d %b %Y')
                         }}}
 
                     userCollection.update_one(myquery, newvalues)
